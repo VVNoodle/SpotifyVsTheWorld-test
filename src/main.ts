@@ -13,53 +13,27 @@ const url = process.argv[2];
 const createEventSource = () => {
   const eventSourceInitDict = { https: { rejectUnauthorized: false } };
   const es = new EventSource(
-    `https://${url}/sub/${artistName}`,
+    `https://${url}/pubsub/${artistName}`,
     eventSourceInitDict,
   );
   es.onmessage = (e) => {
     console.log(`subscribers updated: ${e.data}`);
   };
-};
 
-console.log(`subscribing to artist:${artistName}`);
-
-const main = async () => {
-  const publishUrl = `https://${url}/pub/${artistName}`;
-  try {
-    const { body } = await got(publishUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      http2: true,
-    });
-    const json: {
-      messages: string;
-      requested: string;
-      subscribers: string;
-      last_message_id: string;
-    } = JSON.parse(body);
-
-    const subscriberCount = parseInt(json.subscribers) + 1;
-    console.log('new subscriber count: ', subscriberCount);
-
+  es.onopen = async () => {
+    const publishUrl = `https://${url}/pubsub/${artistName}`;
+    console.log(`subscribing to artist:${artistName}`);
     await got(publishUrl, {
       method: 'POST',
-      body: `c=${subscriberCount}`,
     });
+  };
+};
+
+const main = async () => {
+  try {
     createEventSource();
   } catch (error) {
-    console.log('no entry yet');
-    const result = got(publishUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      method: 'POST',
-      body: `c=1`,
-    });
-    console.log('result', await result.text());
-    createEventSource();
+    console.log(`ERROR: ${JSON.stringify(error, null, 4)}`);
   }
 };
 
